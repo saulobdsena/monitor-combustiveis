@@ -1,0 +1,51 @@
+# Ambiente local do projeto: Postgres (banco analítico) + Metabase (dashboards).
+# Subir:  docker compose up -d      Derrubar: docker compose down
+# As credenciais vêm do arquivo .env (copie o .env.example).
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: combustiveis-postgres
+    # Lê POSTGRES_USER, POSTGRES_PASSWORD e POSTGRES_DB do .env.
+    # A imagem oficial usa essas variáveis para criar o usuário e o banco.
+    env_file: .env
+    ports:
+      # "porta_no_seu_pc:porta_no_container". Se a 5432 já estiver em uso
+      # na sua máquina, defina POSTGRES_PORT=5433 no .env.
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Volume nomeado: os dados sobrevivem a "docker compose down".
+      - pgdata:/var/lib/postgresql/data
+      # Bind mount: scripts desta pasta rodam só na PRIMEIRA criação do banco
+      # (quando o volume pgdata está vazio).
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      # pg_isready responde OK quando o Postgres aceita conexões.
+      # $$ escapa o $ para o compose não substituir a variável; quem expande é o shell do container.
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  metabase:
+    image: metabase/metabase:latest
+    container_name: combustiveis-metabase
+    ports:
+      - "3000:3000"
+    environment:
+      # Onde o Metabase guarda os metadados DELE (usuários, perguntas, dashboards).
+      # Apontamos para dentro de um volume para não perder os dashboards
+      # quando o container for recriado.
+      MB_DB_FILE: /metabase-data/metabase.db
+    volumes:
+      - metabase-data:/metabase-data
+    depends_on:
+      postgres:
+        # Só sobe depois que o healthcheck do Postgres passar.
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  metabase-data:
