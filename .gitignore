@@ -1,0 +1,17 @@
+# Segredos
+.env
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# dbt
+target/
+dbt_packages/
+logs/
+
+# Dados baixados (mantém só a pasta no git)
+data/landing/*
+!data/landing/.gitkeep
